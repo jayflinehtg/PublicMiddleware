@@ -6,7 +6,7 @@ contract HerbalPlant {
         string name;
         string namaLatin;
         string komposisi;
-        string kegunaan;
+        string manfaat;
         string dosis;
         string caraPengolahan;
         string efekSamping;
@@ -38,11 +38,11 @@ contract HerbalPlant {
     mapping(uint => mapping(address => bool)) public plantLikes;
 
     uint public plantCount;
-    address[] private registeredUsers;
 
     event PlantAdded(uint plantId, string name, address owner);
     event PlantRated(uint plantId, address user, uint rating);
     event PlantLiked(uint plantId, address user);
+    event PlantEdited(uint indexed plantId, address indexed editor);
     event UserRegistered(address indexed publicKey, string fullName);
     event UserLoggedIn(address indexed publicKey);
     event UserLoggedOut(address indexed publicKey);
@@ -70,8 +70,6 @@ contract HerbalPlant {
             isLoggedIn: false
         });
 
-        registeredUsers.push(msg.sender);
-
         emit UserRegistered(msg.sender, fullName);
     }
 
@@ -87,7 +85,7 @@ contract HerbalPlant {
     // 🔹 Getter untuk mengambil data user berdasarkan address
     function getUserInfo(address userAddress) public view returns (
         string memory fullName,
-        string memory hashPass,
+        string memory hashPass, 
         bool isRegistered,
         bool isLoggedIn
     ) {
@@ -113,7 +111,7 @@ contract HerbalPlant {
         string memory name,
         string memory namaLatin,
         string memory komposisi,
-        string memory kegunaan,
+        string memory manfaat,
         string memory dosis,
         string memory caraPengolahan,
         string memory efekSamping,
@@ -127,7 +125,7 @@ contract HerbalPlant {
             name: name,
             namaLatin: namaLatin,
             komposisi: komposisi,
-            kegunaan: kegunaan,
+            manfaat: manfaat,
             dosis: dosis,
             caraPengolahan: caraPengolahan,
             efekSamping: efekSamping,
@@ -148,7 +146,7 @@ contract HerbalPlant {
         string memory name,
         string memory namaLatin,
         string memory komposisi,
-        string memory kegunaan,
+        string memory manfaat,
         string memory dosis,
         string memory caraPengolahan,
         string memory efekSamping,
@@ -161,36 +159,38 @@ contract HerbalPlant {
         plants[plantId].name = name;
         plants[plantId].namaLatin = namaLatin;
         plants[plantId].komposisi = komposisi;
-        plants[plantId].kegunaan = kegunaan;
+        plants[plantId].manfaat = manfaat;
         plants[plantId].dosis = dosis;
         plants[plantId].caraPengolahan = caraPengolahan;
         plants[plantId].efekSamping = efekSamping;
         plants[plantId].ipfsHash = ipfsHash;
 
-        emit PlantAdded(plantId, name, msg.sender); // Emit event dengan ID tanaman yang sudah diubah
+        emit PlantEdited(plantId, msg.sender); // Emit event dengan ID tanaman yang sudah diubah
     }
 
     // 🔹 Memberi rating tanaman herbal (1-5)
     function ratePlant(uint plantId, uint rating) public onlyActiveUser {
-        require(plants[plantId].owner != address(0), "Tanaman tidak ditemukan");
-        require(rating >= 1 && rating <= 5, "Rating harus antara 1 hingga 5");
+    require(plants[plantId].owner != address(0), "Tanaman tidak ditemukan");
+    require(rating >= 1 && rating <= 5, "Rating harus antara 1 hingga 5");
 
-        uint previousRating = plantRatings[plantId][msg.sender];
-        if (previousRating != 0) {
-            // Mengurangi rating sebelumnya
-            plants[plantId].ratingTotal -= previousRating;
-            plants[plantId].ratingCount--; // Mengurangi jumlah rating
-        }
-
-        // Menambahkan rating baru
-        plantRatings[plantId][msg.sender] = rating;
+    uint previousRating = plantRatings[plantId][msg.sender];
+    
+    // Cek apakah ini rating pertama kali dari pengguna atau pembaruan rating
+    if (previousRating == 0) {
+        // --- rating PERTAMA KALI dari pengguna ---
         plants[plantId].ratingTotal += rating;
-        plants[plantId].ratingCount++; // Menambah jumlah rating
-
-        // Menyimpan user yang memberi rating
+        plants[plantId].ratingCount++;
         plantRatingUsers[plantId].push(msg.sender);
+    } else {
+        // --- Pengguna MEMPERBARUI ratingnya yang sudah ada ---
+        plants[plantId].ratingTotal -= previousRating;
+        plants[plantId].ratingTotal += rating;
+    }
 
-        emit PlantRated(plantId, msg.sender, rating);
+    // Selalu update rating individu pengguna
+    plantRatings[plantId][msg.sender] = rating;
+
+    emit PlantRated(plantId, msg.sender, rating);
     }
 
     // 🔹 Fungsi untuk mendapatkan rata-rata rating dari sebuah tanaman herbal
@@ -252,12 +252,24 @@ contract HerbalPlant {
         emit PlantCommented(plantId, msg.sender, comment);
     }
 
+    // 🔹 Mendapatkan jumlah komentar pada tanaman tertentu
+    function getPlantCommentCount(uint plantId) public view returns (uint) {
+        return plantComments[plantId].length;
+    }
+
+    // 🔹 Mendapatkan satu komentar berdasarkan indeksnya untuk tanaman tertentu
+    function getPlantCommentAtIndex(uint plantId, uint index) public view returns (Comment memory) {
+        // require(plants[plantId].owner != address(0), "Tanaman tidak ditemukan"); // Opsional
+        require(index < plantComments[plantId].length, "Indeks komentar di luar jangkauan");
+        return plantComments[plantId][index];
+    }
+
     // 🔹 Mengambil detail tanaman herbal (Semua informasi dalam satu fungsi)
     function getPlant(uint plantId) public view returns (
         string memory name,
         string memory namaLatin,
         string memory komposisi,
-        string memory kegunaan,
+        string memory manfaat,
         string memory dosis,
         string memory caraPengolahan,
         string memory efekSamping,
@@ -274,7 +286,7 @@ contract HerbalPlant {
             plant.name,
             plant.namaLatin,
             plant.komposisi,
-            plant.kegunaan,
+            plant.manfaat,
             plant.dosis,
             plant.caraPengolahan,
             plant.efekSamping,
@@ -286,12 +298,12 @@ contract HerbalPlant {
         );
     }
 
-    // 🔹 Fungsi untuk mencari tanaman berdasarkan nama, nama latin, komposisi, atau kegunaan
+    // 🔹 Fungsi untuk mencari tanaman berdasarkan nama, nama latin, komposisi, atau manfaat
     function searchPlants(
     string memory name, 
     string memory namaLatin, 
     string memory komposisi, 
-    string memory kegunaan
+    string memory manfaat
     ) 
     public view
     returns (uint[] memory, Plant[] memory) // Return 2 array: IDs dan data tanaman
@@ -309,7 +321,7 @@ contract HerbalPlant {
         if (bytes(name).length > 0 && contains(currentPlant.name, name)) isMatch = true;
         if (bytes(namaLatin).length > 0 && contains(currentPlant.namaLatin, namaLatin)) isMatch = true;
         if (bytes(komposisi).length > 0 && contains(currentPlant.komposisi, komposisi)) isMatch = true;
-        if (bytes(kegunaan).length > 0 && contains(currentPlant.kegunaan, kegunaan)) isMatch = true;
+        if (bytes(manfaat).length > 0 && contains(currentPlant.manfaat, manfaat)) isMatch = true;
 
         // Jika memenuhi kriteria, tambahkan ke hasil
         if (isMatch) {
@@ -385,13 +397,4 @@ contract HerbalPlant {
         return string(lowerBytes);
     }
 
-    // 🔹 Mengambil komentar/testimoni tanaman herbal
-    function getPlantComments(uint plantId) public view returns (Comment[] memory) {
-        return plantComments[plantId];
-    }
-
-    // 🔹 Mengambil semua user yang terdaftar
-    function getAllUsers() public view returns (address[] memory) {
-        return registeredUsers;
-    }
 }

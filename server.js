@@ -3,7 +3,6 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const routes = require("./routes/index.js"); // const router utama
-const { verifyToken } = require("./jwtMiddleware.js"); // Import middleware untuk autentikasi JWT
 
 // Inisialisasi environment variables
 dotenv.config();

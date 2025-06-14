@@ -4,136 +4,140 @@ const { isUserLoggedIn, getUserData } = require("./authController.js");
 async function addPlantData(req, res) {
   try {
     const userAddress = req.user.publicKey;
-
-    console.log("Starting plant addition for user:", userAddress);
-
-    console.time("Add Plant Time");
+    console.log("Preparing addPlant transaction data for user:", userAddress);
+    console.time("Prepare Add Plant TX Data Time");
 
     const {
       name,
       namaLatin,
       komposisi,
-      kegunaan,
+      manfaat,
       dosis,
       caraPengolahan,
       efekSamping,
       ipfsHash,
     } = req.body;
 
-    // Pastikan pengguna sudah login
-    const loggedIn = await isUserLoggedIn(userAddress);
-    if (!loggedIn) {
-      return res.status(401).json({
-        success: false,
-        message: "Anda harus login untuk menambahkan tanaman",
-      });
+    if (!name) {
+      throw new Error("Data nama tidak boleh kosong.");
+    }
+    if (!namaLatin) {
+      throw new Error("Data nama latin tidak boleh kosong.");
+    }
+    if (!komposisi) {
+      throw new Error("Data komposisi tidak boleh kosong.");
+    }
+    if (!manfaat) {
+      throw new Error("Data manfaat tidak boleh kosong.");
+    }
+    if (!dosis) {
+      throw new Error("Data dosis tidak boleh kosong.");
+    }
+    if (!caraPengolahan) {
+      throw new Error("Data cara pengolahan tidak boleh kosong.");
+    }
+    if (!efekSamping) {
+      throw new Error("Data efek samping tidak boleh kosong.");
+    }
+    if (!ipfsHash) {
+      throw new Error("Data ipfsHash tidak boleh kosong.");
     }
 
-    const { contract } = await initialize(userAddress);
+    const { contract } = await initialize();
 
-    // Menambahkan tanaman dan mendapatkan txHash serta ID tanaman yang baru
-    const tx = await contract.methods
-      .addPlant(
-        name,
-        namaLatin,
-        komposisi,
-        kegunaan,
-        dosis,
-        caraPengolahan,
-        efekSamping,
-        ipfsHash
-      )
-      .send({ from: userAddress, gas: 5000000 });
+    const txObject = contract.methods.addPlant(
+      name,
+      namaLatin,
+      komposisi,
+      manfaat,
+      dosis,
+      caraPengolahan,
+      efekSamping,
+      ipfsHash
+    );
+    const transactionDataHex = txObject.encodeABI();
 
-    console.log(tx.events); // Log the events to check the emitted event
-
-    // Extracting plantId from the emitted event
-    const plantId = tx.events.PlantAdded.returnValues.plantId;
-
-    // Ensure the plantId is a string, converting if necessary
-    const plantIdString = plantId.toString();
+    console.timeEnd("Prepare Add Plant TX Data Time");
+    console.log("✅ TX data (ABI encoded) untuk addPlant disiapkan.");
 
     res.json({
       success: true,
-      message: "Tanaman berhasil ditambahkan",
-      txHash: tx.transactionHash,
-      plantId: plantIdString,
+      message: "Data transaksi untuk menambah tanaman telah siap.",
+      data: {
+        transactionData: transactionDataHex,
+      },
     });
-
-    console.timeEnd("Add Plant Time");
-    console.log(`✅ Plant added with transaction hash: ${tx.transactionHash}`);
   } catch (error) {
-    console.error("❌ Error in addPlantData:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error in prepare addPlantData:", error);
+    res.status(500).json({
+      success: false,
+      message: `Gagal mempersiapkan data transaksi: ${error.message}`,
+    });
   }
 }
 
 // Fungsi untuk mengedit data tanaman herbal
 async function editPlant(req, res) {
   try {
-    console.time("Edit Plant Time");
     const userAddress = req.user.publicKey;
+    // plantId diambil dari req.params
+    const { plantId } = req.params;
     const {
-      plantId,
       name,
       namaLatin,
       komposisi,
-      kegunaan,
+      manfaat,
       dosis,
       caraPengolahan,
       efekSamping,
       ipfsHash,
     } = req.body;
 
-    // Pastikan pengguna sudah login
-    const loggedIn = await isUserLoggedIn(userAddress);
-    if (!loggedIn) {
-      return res.status(401).json({
-        success: false,
-        message: "Anda harus login untuk mengedit tanaman",
-      });
-    }
+    console.log(
+      `Preparing editPlant TX data for plantId: ${plantId} by user: ${userAddress}`
+    );
+    console.time("Prepare Edit Plant TX Data Time");
 
-    // Inisialisasi kontrak
-    const { contract } = await initialize(userAddress);
+    const { contract } = await initialize();
 
-    // Cek apakah tanaman yang ingin diedit milik pengguna
+    // Validasi kepemilikan sebelum membuat encodedABI
     const plant = await contract.methods.getPlant(plantId).call();
     if (plant.owner.toLowerCase() !== userAddress.toLowerCase()) {
       return res.status(403).json({
         success: false,
-        message: "Anda tidak memiliki hak untuk mengedit tanaman ini",
+        message: "Anda tidak memiliki hak untuk mengedit tanaman ini.",
       });
     }
 
-    // Kirim transaksi untuk mengedit tanaman
-    const tx = await contract.methods
-      .editPlant(
-        plantId,
-        name,
-        namaLatin,
-        komposisi,
-        kegunaan,
-        dosis,
-        caraPengolahan,
-        efekSamping,
-        ipfsHash
-      )
-      .send({ from: userAddress, gas: 5000000 });
+    const txObject = contract.methods.editPlant(
+      plantId,
+      name,
+      namaLatin,
+      komposisi,
+      manfaat,
+      dosis,
+      caraPengolahan,
+      efekSamping,
+      ipfsHash
+    );
+    const transactionDataHex = txObject.encodeABI();
+
+    console.timeEnd("Prepare Edit Plant TX Data Time");
+    console.log(`✅ TX data (ABI encoded) untuk editPlant disiapkan.`);
 
     res.json({
       success: true,
-      message: "Tanaman berhasil diedit",
-      txHash: tx.transactionHash,
-      plantId: plantId.toString(), // Mengonversi BigInt ke string
+      message: "Data transaksi untuk mengedit tanaman telah siap.",
+      data: {
+        transactionData: transactionDataHex,
+      },
     });
-    console.timeEnd("Edit Plant Time");
-    console.log(
-      `✅ Berhasil mengedit tanaman dengan TX Hash: ${tx.transactionHash}`
-    );
   } catch (error) {
-    console.error("❌ Error in editPlant:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error in prepare editPlant:", error);
+    res.status(500).json({
+      success: false,
+      message: `Gagal mempersiapkan data transaksi edit: ${error.message}`,
+    });
   }
 }
 
@@ -170,7 +174,7 @@ async function getPlant(req, res) {
         name: plant.name,
         namaLatin: plant.namaLatin,
         komposisi: plant.komposisi,
-        kegunaan: plant.kegunaan,
+        manfaat: plant.manfaat,
         dosis: plant.dosis,
         caraPengolahan: plant.caraPengolahan,
         efekSamping: plant.efekSamping,
@@ -192,50 +196,39 @@ async function getPlant(req, res) {
 
 async function ratePlant(req, res) {
   try {
-    console.time("Rate Plant Time");
     const userAddress = req.user.publicKey;
     const { plantId, rating } = req.body;
+    console.log(
+      `Preparing ratePlant TX data for plantId: ${plantId} by user: ${userAddress}`
+    );
+    console.time("Prepare Rate Plant TX Data Time");
 
-    // Pastikan pengguna sudah login
-    const loggedIn = await isUserLoggedIn(userAddress);
-    if (!loggedIn) {
-      return res.status(401).json({
-        success: false,
-        message: "Anda harus login untuk memberi rating pada tanaman",
-      });
+    const { contract } = await initialize();
+
+    // Anda bisa menambahkan validasi di sini jika perlu, misal cek rating 1-5
+    if (rating < 1 || rating > 5) {
+      throw new Error("Rating harus antara 1 dan 5.");
     }
 
-    // Inisialisasi kontrak
-    const { contract } = await initialize(userAddress);
-    // Cek apakah pengguna sudah memberikan rating sebelumnya
-    const previousRating = await contract.methods
-      .plantRatings(plantId, userAddress)
-      .call();
+    const txObject = contract.methods.ratePlant(plantId, rating);
+    const transactionDataHex = txObject.encodeABI();
 
-    // Jika ada rating sebelumnya, beri tahu pengguna jika mereka ingin mengganti rating
-    if (previousRating != 0) {
-      console.log(`Pengguna sebelumnya memberi rating ${previousRating}`);
-    }
-
-    // Kirim transaksi untuk memberikan rating
-    const tx = await contract.methods
-      .ratePlant(plantId, rating)
-      .send({ from: userAddress, gas: 5000000 });
+    console.timeEnd("Prepare Rate Plant TX Data Time");
+    console.log(`✅ TX data (ABI encoded) untuk ratePlant disiapkan.`);
 
     res.json({
       success: true,
-      message: "Rating berhasil ditambahkan",
-      txHash: tx.transactionHash,
-      plantId: plantId.toString(), // Mengonversi BigInt ke string
+      message: "Data transaksi untuk memberi rating telah siap.",
+      data: {
+        transactionData: transactionDataHex,
+      },
     });
-    console.timeEnd("Rate Plant Time");
-    console.log(
-      `✅ Berhasil menambahkan rating pada tanaman dengan TX Hash: ${tx.transactionHash}`
-    );
-    return tx.transactionHash;
   } catch (error) {
-    console.error("❌ Error in ratePlant:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error in prepare ratePlant:", error);
+    res.status(500).json({
+      success: false,
+      message: `Gagal mempersiapkan data rating: ${error.message}`,
+    });
   }
 }
 
@@ -293,78 +286,72 @@ async function getPlantRatings(req, res) {
 
 async function likePlant(req, res) {
   try {
-    console.time("Like Plant Time");
     const userAddress = req.user.publicKey;
     const { plantId } = req.body;
+    console.log(
+      `Preparing likePlant TX data for plantId: ${plantId} by user: ${userAddress}`
+    );
+    console.time("Prepare Like Plant TX Data Time");
 
-    // Pastikan pengguna sudah login
-    const loggedIn = await isUserLoggedIn(userAddress);
-    if (!loggedIn) {
-      return res.status(401).json({
-        success: false,
-        message: "Anda harus login untuk menyukai tanaman",
-      });
-    }
+    const { contract } = await initialize();
 
-    const { contract } = await initialize(userAddress);
+    const txObject = contract.methods.likePlant(plantId);
+    const transactionDataHex = txObject.encodeABI();
 
-    // Menjalankan fungsi likePlant di smart contract
-    const tx = await contract.methods
-      .likePlant(plantId)
-      .send({ from: userAddress, gas: 5000000 });
+    console.timeEnd("Prepare Like Plant TX Data Time");
+    console.log(`✅ TX data (ABI encoded) untuk likePlant disiapkan.`);
 
     res.json({
       success: true,
-      message: "Operasi like berhasil",
-      txHash: tx.transactionHash,
-      plantId: plantId.toString(), // Mengonversi BigInt ke string
+      message: "Data transaksi untuk menyukai tanaman telah siap.",
+      data: {
+        transactionData: transactionDataHex,
+      },
     });
-    console.timeEnd("Like Plant Time");
-    console.log(
-      `✅ Berhasil memberikan like dengan TX Hash: ${tx.transactionHash}`
-    );
-    return tx.transactionHash;
   } catch (error) {
-    console.error("❌ Error in likePlant:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error in prepare likePlant:", error);
+    res.status(500).json({
+      success: false,
+      message: `Gagal mempersiapkan data like: ${error.message}`,
+    });
   }
 }
 
 // Function untuk memberikan komentar pada sebuah data tanaman herbal
 async function commentPlant(req, res) {
   try {
-    console.time("Comment Plant Time");
     const userAddress = req.user.publicKey;
     const { plantId, comment } = req.body;
+    console.log(
+      `Preparing commentPlant TX data for plantId: ${plantId} by user: ${userAddress}`
+    );
+    console.time("Prepare Comment Plant TX Data Time");
 
-    // Pastikan pengguna sudah login
-    const loggedIn = await isUserLoggedIn(userAddress);
-    if (!loggedIn) {
-      return res.status(401).json({
-        success: false,
-        message: "Anda harus login untuk memberi komentar pada tanaman",
-      });
+    if (!comment || comment.trim() === "") {
+      throw new Error("Komentar tidak boleh kosong.");
     }
 
-    const { contract } = await initialize(userAddress);
-    const tx = await contract.methods
-      .commentPlant(plantId, comment)
-      .send({ from: userAddress, gas: 5000000 });
+    const { contract } = await initialize();
+
+    const txObject = contract.methods.commentPlant(plantId, comment);
+    const transactionDataHex = txObject.encodeABI();
+
+    console.timeEnd("Prepare Comment Plant TX Data Time");
+    console.log(`✅ TX data (ABI encoded) untuk commentPlant disiapkan.`);
 
     res.json({
       success: true,
-      message: "Komentar berhasil ditambahkan",
-      txHash: tx.transactionHash,
-      plantId: plantId.toString(), // Mengonversi BigInt ke string
+      message: "Data transaksi untuk memberi komentar telah siap.",
+      data: {
+        transactionData: transactionDataHex,
+      },
     });
-    console.timeEnd("Comment Plant Time");
-    console.log(
-      `✅ Berhasil memberikan komentar dengan TX Hash: ${tx.transactionHash}`
-    );
-    return tx.transactionHash;
   } catch (error) {
-    console.error("❌ Error in commentPlant:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error in prepare commentPlant:", error);
+    res.status(500).json({
+      success: false,
+      message: `Gagal mempersiapkan data komentar: ${error.message}`,
+    });
   }
 }
 
@@ -394,7 +381,7 @@ async function getAllPlants(req, res) {
         name: plant.name || "Tidak Diketahui",
         namaLatin: plant.namaLatin || "Tidak Diketahui",
         komposisi: plant.komposisi || "Tidak Diketahui",
-        kegunaan: plant.kegunaan || "Tidak Diketahui",
+        manfaat: plant.manfaat || "Tidak Diketahui",
         dosis: plant.dosis || "Tidak Diketahui",
         caraPengolahan: plant.caraPengolahan || "Tidak Diketahui",
         efekSamping: plant.efekSamping || "Tidak Diketahui",
@@ -426,17 +413,17 @@ async function getAllPlants(req, res) {
   }
 }
 
-// Fungsi untuk mencari tanaman berdasarkan nama, nama latin, komposisi, atau kegunaan
+// Fungsi untuk mencari tanaman berdasarkan nama, nama latin, komposisi, atau manfaat
 async function searchPlants(req, res) {
   try {
     console.time("Search Plant Time");
-    const { name, namaLatin, komposisi, kegunaan } = req.query;
+    const { name, namaLatin, komposisi, manfaat } = req.query;
 
     // Validasi parameter
     const validatedName = typeof name === "string" ? name : "";
     const validatedNamaLatin = typeof namaLatin === "string" ? namaLatin : "";
     const validatedKomposisi = typeof komposisi === "string" ? komposisi : "";
-    const validatedKegunaan = typeof kegunaan === "string" ? kegunaan : "";
+    const validatedmanfaat = typeof manfaat === "string" ? manfaat : "";
 
     const { contract } = await initialize();
 
@@ -446,7 +433,7 @@ async function searchPlants(req, res) {
         validatedName,
         validatedNamaLatin,
         validatedKomposisi,
-        validatedKegunaan
+        validatedmanfaat
       )
       .call();
 
@@ -463,7 +450,7 @@ async function searchPlants(req, res) {
       name: plant.name || "Tidak Diketahui",
       namaLatin: plant.namaLatin || "Tidak Diketahui",
       komposisi: plant.komposisi || "Tidak Diketahui",
-      kegunaan: plant.kegunaan || "Tidak Diketahui",
+      manfaat: plant.manfaat || "Tidak Diketahui",
       dosis: plant.dosis || "Tidak Diketahui", // Menambahkan dosis
       caraPengolahan: plant.caraPengolahan || "Tidak Diketahui",
       efekSamping: plant.efekSamping || "Tidak Diketahui", // Menambahkan efek samping
@@ -487,29 +474,63 @@ async function searchPlants(req, res) {
 // Function untuk mendapatkan komentar dari sebuah data tanaman herbal
 async function getComments(req, res) {
   try {
-    console.time("Get Comment Time");
+    console.time("Get Paginated Comments Time");
     const { plantId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
     const { contract } = await initialize();
 
-    // Mengambil komentar dari smart contract berdasarkan plantId
-    const comments = await contract.methods.getPlantComments(plantId).call();
+    // 1. Dapatkan jumlah total komentar dari fungsi baru di kontrak
+    const totalCommentsBigInt = await contract.methods
+      .getPlantCommentCount(plantId)
+      .call();
+    const totalComments = parseInt(totalCommentsBigInt.toString());
 
-    // Mengonversi BigInt menjadi string untuk setiap nilai yang relevan dalam komentar
+    if (totalComments === 0) {
+      return res.json({
+        success: true,
+        total: 0,
+        currentPage: page,
+        pageSize: limit,
+        totalPages: 0,
+        comments: [],
+      });
+    }
+
+    // 2. Hitung startIndex dan endIndex
+    const totalPages = Math.ceil(totalComments / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = Math.min(startIndex + limit, totalComments);
+    const commentsPromises = [];
+
+    // 3. Loop untuk mengambil komentar satu per satu untuk halaman saat ini
+    if (startIndex < totalComments) {
+      for (let i = startIndex; i < endIndex; i++) {
+        // Panggil fungsi baru getPlantCommentAtIndex
+        commentsPromises.push(
+          contract.methods.getPlantCommentAtIndex(plantId, i).call()
+        );
+      }
+    }
+
+    const resolvedComments = await Promise.all(commentsPromises);
+
+    // 4. Ambil fullName untuk setiap komentator
     const commentsWithStringValues = await Promise.all(
-      comments.map(async (comment) => {
+      resolvedComments.map(async (comment) => {
         try {
           const userInfo = await getUserData(comment.user);
           return {
             publicKey: comment.user,
-            fullName: userInfo.fullName || "Unknown User",
+            fullName: userInfo.fullName || "Pengguna Tidak Dikenal",
             comment: comment.comment,
             timestamp: comment.timestamp.toString(),
           };
         } catch (error) {
-          // Kalau gagal ambil userInfo (misal user belum register), tetap jalan
           return {
             publicKey: comment.user,
-            fullName: "Unknown User",
+            fullName: "Pengguna Tidak Dikenal",
             comment: comment.comment,
             timestamp: comment.timestamp.toString(),
           };
@@ -519,11 +540,15 @@ async function getComments(req, res) {
 
     res.json({
       success: true,
-      comments: commentsWithStringValues, // Mengembalikan komentar yang telah dikonversi
+      total: totalComments,
+      currentPage: page,
+      pageSize: limit,
+      totalPages: totalPages,
+      comments: commentsWithStringValues,
     });
-    console.timeEnd("Get Comment Time");
+    console.timeEnd("Get Paginated Comments Time");
   } catch (error) {
-    console.error("❌ Error in getComments:", error);
+    console.error("❌ Error di getComments (paginasi):", error);
     res.status(500).json({ success: false, message: error.message });
   }
 }

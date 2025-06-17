@@ -11,6 +11,10 @@ const {
   getComments,
   getAllPlants,
   getAverageRating,
+  getPlantRecord,
+  getAllPlantRecord,
+  getPlantTransactionHistory,
+  getRecordCount,
 } = require("../controllers/plantController.js");
 
 const { verifyToken, requireFreshToken } = require("../jwtMiddleware.js");
@@ -50,6 +54,18 @@ router.get("/:plantId/ratings", getPlantRatings);
 router.get("/:plantId/comments", getComments);
 
 // 🔹 Rute untuk mendapatkan rata-rata rating tanaman berdasarkan plantId
-router.get("/plant/averageRating/:plantId", getAverageRating);
+router.get("/averageRating/:plantId", getAverageRating);
+
+// 🔹 Rute untuk mengambil record transaksi berdasarkan recordId
+router.get("/record/:recordId", getPlantRecord);
+
+// 🔹 Rute untuk mengambil semua plant records
+router.get("/records/all", getAllPlantRecord);
+
+// 🔹 Rute untuk mengambil transaction history berdasarkan plantId dengan pagination
+router.get("/history/:plantId", getPlantTransactionHistory);
+
+// 🔹 Rute untuk mengambil total record count
+router.get("/records/count", getRecordCount);
 
 module.exports = router;

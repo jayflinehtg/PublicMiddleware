@@ -30,12 +30,22 @@ contract HerbalPlant {
         uint timestamp;
     }
 
+    struct PlantRecord {
+        string publicTxHash;    // Transaction hash dari Public
+        uint256 plantId;         // ID tanaman dari Public
+        address userAddress;     // Address user yang menambahkan
+        uint256 timestamp;       // Waktu penyimpanan
+    }
+
     mapping(uint => Plant) public plants;
     mapping(address => User) private usersByPublicKey;
     mapping(uint => Comment[]) public plantComments;  // Mapping for plant comments
     mapping(uint => address[]) public plantRatingUsers;
     mapping(uint => mapping(address => uint)) public plantRatings;
     mapping(uint => mapping(address => bool)) public plantLikes;
+
+    mapping(uint256 => PlantRecord) public plantRecords;
+    uint256 public recordCount;
 
     uint public plantCount;
 
@@ -47,6 +57,14 @@ contract HerbalPlant {
     event UserLoggedIn(address indexed publicKey);
     event UserLoggedOut(address indexed publicKey);
     event PlantCommented(uint plantId, address user, string comment);
+
+    event PlantRecordAdded(
+        uint256 indexed recordId,
+        string publicTxHash,
+        uint256 plantId,
+        address userAddress,
+        uint256 timestamp
+    );
 
     modifier onlyActiveUser() {
         require(usersByPublicKey[msg.sender].isRegistered, "Anda harus terdaftar");
@@ -136,7 +154,18 @@ contract HerbalPlant {
             owner: msg.sender
         });
 
-        emit PlantAdded(currentId, name, msg.sender); // gunakan ID yang benar
+    // Auto-save plant record dengan transaction hash
+    plantRecords[recordCount] = PlantRecord({
+        publicTxHash: "",
+        plantId: currentId,
+        userAddress: msg.sender,
+        timestamp: block.timestamp
+    });
+
+        emit PlantAdded(currentId, name, msg.sender);
+        emit PlantRecordAdded(recordCount, "", currentId,msg.sender, block.timestamp);
+
+        recordCount++;
         plantCount++;
     }
 
@@ -165,8 +194,19 @@ contract HerbalPlant {
         plants[plantId].efekSamping = efekSamping;
         plants[plantId].ipfsHash = ipfsHash;
 
-        emit PlantEdited(plantId, msg.sender); // Emit event dengan ID tanaman yang sudah diubah
-    }
+    // Auto-save plant record untuk edit
+    plantRecords[recordCount] = PlantRecord({
+        publicTxHash: "", 
+        plantId: plantId,
+        userAddress: msg.sender,
+        timestamp: block.timestamp
+    });
+
+    emit PlantEdited(plantId, msg.sender);
+    emit PlantRecordAdded(recordCount, "", plantId, msg.sender, block.timestamp);
+    
+    recordCount++;
+}
 
     // 🔹 Memberi rating tanaman herbal (1-5)
     function ratePlant(uint plantId, uint rating) public onlyActiveUser {
@@ -395,6 +435,22 @@ contract HerbalPlant {
         }
         
         return string(lowerBytes);
+    }
+    
+    // 🔹 mengambil transaction hash, plantId, dan userAddress, dan timestamp
+    function getPlantRecord(uint256 recordId) public view returns (
+        string memory publicTxHash,
+        uint256 plantId,
+        address userAddress,
+        uint256 timestamp
+    ) {
+        PlantRecord memory record = plantRecords[recordId];
+        return (
+            record.publicTxHash,
+            record.plantId,
+            record.userAddress,
+            record.timestamp
+        );
     }
 
 }

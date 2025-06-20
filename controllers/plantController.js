@@ -1,5 +1,5 @@
   const { initialize } = require("../utils/blockchain.js");
-const { isUserLoggedIn, getUserData } = require("./authController.js");
+const { getUserData } = require("./authController.js");
 
 async function addPlantData(req, res) {
   try {

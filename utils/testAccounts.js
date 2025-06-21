@@ -103,16 +103,18 @@ async function processNonce(address) {
         address,
         "pending"
       );
-      accountNonces.set(address, networkNonce);
+      accountNonces.set(address, BigInt(networkNonce));
       console.log(`🔍 Initial nonce for ${address}: ${networkNonce}`);
     }
 
-    // Get current nonce dan increment
     const currentNonce = accountNonces.get(address);
-    accountNonces.set(address, currentNonce + 1);
 
-    console.log(`📈 Assigned nonce ${currentNonce} to ${address}`);
-    return currentNonce;
+    const newNonce = currentNonce + BigInt(1);
+    accountNonces.set(address, newNonce);
+
+    console.log(`📈 Assigned nonce ${currentNonce.toString()} to ${address}`);
+
+    return Number(currentNonce);
   } catch (error) {
     console.error(`❌ Error getting nonce for ${address}:`, error);
     throw error;
@@ -122,9 +124,9 @@ async function processNonce(address) {
 async function syncNonce(address) {
   try {
     const networkNonce = await web3.eth.getTransactionCount(address, "pending");
-    accountNonces.set(address, networkNonce);
+    accountNonces.set(address, BigInt(networkNonce));
     console.log(`🔄 Synced nonce for ${address}: ${networkNonce}`);
-    return networkNonce;
+    return Number(networkNonce);
   } catch (error) {
     console.error(`❌ Error syncing nonce for ${address}:`, error);
     throw error;
@@ -144,7 +146,6 @@ async function resetAllNonces() {
   console.log("✅ All nonces reset successfully");
 }
 
-// Fungsi untuk send transaction menggunakan wallet
 async function sendTransactionWithWallet(userId, transactionObject) {
   const account = getTestAccountFromWallet(userId);
   if (!account) {
@@ -152,21 +153,18 @@ async function sendTransactionWithWallet(userId, transactionObject) {
   }
 
   try {
-    // Get next nonce
     const nonce = await getNextNonce(account.address);
 
-    // Set transaction properties
     transactionObject.from = account.address;
-    transactionObject.nonce = nonce;
+    transactionObject.nonce = Number(nonce);
 
-    // Set gas price jika belum ada
     if (!transactionObject.gasPrice) {
       const gasPrice = await web3.eth.getGasPrice();
-      transactionObject.gasPrice = gasPrice;
+      transactionObject.gasPrice = gasPrice.toString();
     }
 
     console.log(
-      `🔄 Sending transaction from ${account.fullName} (${account.address}) with nonce ${nonce}`
+      `Sending transaction from ${account.fullName} (${account.address}) with nonce ${nonce}`
     );
 
     // Send transaction dengan retry mechanism
@@ -185,14 +183,14 @@ async function sendTransactionWithWallet(userId, transactionObject) {
         retries--;
 
         if (error.message.includes("nonce too low")) {
-          console.log(`⚠️ Nonce too low error, syncing with network...`);
+          console.log(`Nonce too low error, syncing with network...`);
           await syncNonce(account.address);
 
           if (retries > 0) {
             // Get fresh nonce dan retry
             const newNonce = await getNextNonce(account.address);
-            transactionObject.nonce = newNonce;
-            console.log(`🔄 Retrying with new nonce: ${newNonce}`);
+            transactionObject.nonce = Number(newNonce);
+            console.log(`Retrying with new nonce: ${newNonce}`);
           }
         } else if (
           error.message.includes("replacement transaction underpriced")
@@ -203,9 +201,7 @@ async function sendTransactionWithWallet(userId, transactionObject) {
             (currentGasPrice * BigInt(110)) /
             BigInt(100)
           ).toString();
-          console.log(
-            `💰 Increased gas price to: ${transactionObject.gasPrice}`
-          );
+          console.log(`Increased gas price to: ${transactionObject.gasPrice}`);
         } else if (retries === 0) {
           throw error;
         }

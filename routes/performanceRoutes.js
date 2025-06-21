@@ -42,7 +42,7 @@ router.post("/auth/logout", performanceLogoutUser);
 router.post("/plant/add", performanceAddPlant);
 
 // Performance testing untuk edit plant
-router.put("/plant/edit", performanceEditPlant);
+router.put("/plant/edit/:plantId", performanceEditPlant);
 
 // Performance testing untuk rate plant
 router.post("/plant/rate", performanceRatePlant);
@@ -98,6 +98,68 @@ router.get("/test-accounts", (req, res) => {
     message: "Available test accounts for performance testing",
     testAccounts: accounts,
   });
+});
+
+// ==================== NONCE MANAGEMENT ROUTES ====================
+// 🧪 Reset nonces untuk debugging
+router.post("/reset-nonces", async (req, res) => {
+  try {
+    const { resetAllNonces } = require("../utils/testAccounts.js");
+    await resetAllNonces();
+
+    res.json({
+      success: true,
+      message: "All nonces reset successfully",
+    });
+  } catch (error) {
+    console.error("❌ Error resetting nonces:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// 🧪 Get nonce status untuk debugging
+router.get("/nonce-status", async (req, res) => {
+  try {
+    const {
+      TEST_ACCOUNTS,
+      web3,
+      accountNonces,
+    } = require("../utils/testAccounts.js");
+
+    const status = [];
+    for (const account of TEST_ACCOUNTS) {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        account.privateKey
+      ).address;
+      const networkNonce = await web3.eth.getTransactionCount(
+        address,
+        "pending"
+      );
+      const localNonce = accountNonces.get(address) || "Not set";
+
+      status.push({
+        userId: account.id,
+        address: address,
+        networkNonce: networkNonce,
+        localNonce: localNonce,
+        fullName: account.fullName,
+      });
+    }
+
+    res.json({
+      success: true,
+      nonceStatus: status,
+    });
+  } catch (error) {
+    console.error("❌ Error getting nonce status:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
 module.exports = router;

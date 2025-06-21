@@ -205,9 +205,9 @@ async function performanceAddPlant(req, res) {
 // Performance testing untuk edit plant
 async function performanceEditPlant(req, res) {
   try {
+    const { userId } = req.body;
+    const { plantId } = req.params;
     const {
-      userId,
-      plantId,
       name,
       namaLatin,
       komposisi,
@@ -717,7 +717,8 @@ async function performanceGetPlantRatings(req, res) {
 // Performance testing untuk get comments
 async function performanceGetComments(req, res) {
   try {
-    const { userId, plantId } = req.body;
+    const { userId } = req.body;
+    const { plantId } = req.params;
 
     const testAccount = getTestAccountFromWallet(userId);
     if (!testAccount) {
@@ -899,10 +900,12 @@ async function performanceGetAllPlantRecord(req, res) {
       });
     }
 
+    const timeLabel = `Performance Get All Plant Records Time ${Date.now()}`;
+
     console.log(
       `Performance Test: Getting all plant records by ${testAccount.fullName}`
     );
-    console.time("Performance Get All Plant Records Time");
+    console.time(timeLabel);
 
     const { contract } = await initialize();
     const startTime = Date.now();
@@ -914,8 +917,8 @@ async function performanceGetAllPlantRecord(req, res) {
     for (let i = 0; i < total; i++) {
       const record = await contract.methods.getPlantRecord(i).call();
       records.push({
-        recordId: i.toString(), // Menggunakan recordId seperti original
-        publicTxHash: record.publicTxHash, // Menggunakan publicTxHash seperti original
+        recordId: i.toString(),
+        publicTxHash: record.publicTxHash,
         plantId: record.plantId.toString(),
         userAddress: record.userAddress,
         timestamp: record.timestamp.toString(),
@@ -928,14 +931,14 @@ async function performanceGetAllPlantRecord(req, res) {
     res.json({
       success: true,
       message: "Performance test get all plant records completed successfully",
-      totalRecords: total, // Menggunakan totalRecords seperti original
+      totalRecords: total,
       records: records,
       testUser: testAccount.fullName,
       executionTime: executionTime,
       operation: "getAllPlantRecord",
     });
 
-    console.timeEnd("Performance Get All Plant Records Time");
+    console.timeEnd(timeLabel);
     console.log("✅ Performance test get all plant records berhasil");
   } catch (error) {
     console.error("❌ Performance test get all plant records error:", error);

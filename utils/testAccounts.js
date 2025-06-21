@@ -7,6 +7,10 @@ const web3 = new Web3(
   process.env.BLOCKCHAIN_RPC_URL || "https://tea-sepolia.g.alchemy.com/public"
 );
 
+// Nonce management variables (TAMBAHAN BARU)
+const accountNonces = new Map(); // Menyimpan nonce per address
+const nonceLocks = new Map(); // Lock mechanism untuk concurrent access
+
 // Hardcoded test accounts dari Ganache Anda
 const TEST_ACCOUNTS = [
   {
@@ -72,6 +76,74 @@ function getTestAccountFromWallet(userId) {
   };
 }
 
+// Nonce management functions
+async function getNextNonce(address) {
+  // Wait for any existing lock
+  if (nonceLocks.has(address)) {
+    await nonceLocks.get(address);
+  }
+
+  // Create new lock
+  const lockPromise = processNonce(address);
+  nonceLocks.set(address, lockPromise);
+
+  try {
+    const nonce = await lockPromise;
+    return nonce;
+  } finally {
+    nonceLocks.delete(address);
+  }
+}
+
+async function processNonce(address) {
+  try {
+    // Jika belum ada nonce untuk address ini, ambil dari network
+    if (!accountNonces.has(address)) {
+      const networkNonce = await web3.eth.getTransactionCount(
+        address,
+        "pending"
+      );
+      accountNonces.set(address, networkNonce);
+      console.log(`🔍 Initial nonce for ${address}: ${networkNonce}`);
+    }
+
+    // Get current nonce dan increment
+    const currentNonce = accountNonces.get(address);
+    accountNonces.set(address, currentNonce + 1);
+
+    console.log(`📈 Assigned nonce ${currentNonce} to ${address}`);
+    return currentNonce;
+  } catch (error) {
+    console.error(`❌ Error getting nonce for ${address}:`, error);
+    throw error;
+  }
+}
+
+async function syncNonce(address) {
+  try {
+    const networkNonce = await web3.eth.getTransactionCount(address, "pending");
+    accountNonces.set(address, networkNonce);
+    console.log(`🔄 Synced nonce for ${address}: ${networkNonce}`);
+    return networkNonce;
+  } catch (error) {
+    console.error(`❌ Error syncing nonce for ${address}:`, error);
+    throw error;
+  }
+}
+
+async function resetAllNonces() {
+  console.log("🔄 Resetting all nonces...");
+
+  for (const account of TEST_ACCOUNTS) {
+    const address = web3.eth.accounts.privateKeyToAccount(
+      account.privateKey
+    ).address;
+    await syncNonce(address);
+  }
+
+  console.log("✅ All nonces reset successfully");
+}
+
 // Fungsi untuk send transaction menggunakan wallet
 async function sendTransactionWithWallet(userId, transactionObject) {
   const account = getTestAccountFromWallet(userId);
@@ -79,18 +151,76 @@ async function sendTransactionWithWallet(userId, transactionObject) {
     throw new Error(`Test account ${userId} not found`);
   }
 
-  // Set from address
-  transactionObject.from = account.address;
+  try {
+    // Get next nonce
+    const nonce = await getNextNonce(account.address);
 
-  console.log(
-    `🔄 Sending transaction from ${account.fullName} (${account.address})`
-  );
+    // Set transaction properties
+    transactionObject.from = account.address;
+    transactionObject.nonce = nonce;
 
-  // Send transaction menggunakan wallet (otomatis signing)
-  const receipt = await web3.eth.sendTransaction(transactionObject);
+    // Set gas price jika belum ada
+    if (!transactionObject.gasPrice) {
+      const gasPrice = await web3.eth.getGasPrice();
+      transactionObject.gasPrice = gasPrice;
+    }
 
-  console.log(`✅ Transaction successful! Hash: ${receipt.transactionHash}`);
-  return receipt;
+    console.log(
+      `🔄 Sending transaction from ${account.fullName} (${account.address}) with nonce ${nonce}`
+    );
+
+    // Send transaction dengan retry mechanism
+    let retries = 3;
+    let receipt;
+
+    while (retries > 0) {
+      try {
+        receipt = await web3.eth.sendTransaction(transactionObject);
+
+        console.log(
+          `✅ Transaction successful! Hash: ${receipt.transactionHash}, Nonce: ${nonce}`
+        );
+        return receipt;
+      } catch (error) {
+        retries--;
+
+        if (error.message.includes("nonce too low")) {
+          console.log(`⚠️ Nonce too low error, syncing with network...`);
+          await syncNonce(account.address);
+
+          if (retries > 0) {
+            // Get fresh nonce dan retry
+            const newNonce = await getNextNonce(account.address);
+            transactionObject.nonce = newNonce;
+            console.log(`🔄 Retrying with new nonce: ${newNonce}`);
+          }
+        } else if (
+          error.message.includes("replacement transaction underpriced")
+        ) {
+          // Increase gas price by 10%
+          const currentGasPrice = BigInt(transactionObject.gasPrice);
+          transactionObject.gasPrice = (
+            (currentGasPrice * BigInt(110)) /
+            BigInt(100)
+          ).toString();
+          console.log(
+            `💰 Increased gas price to: ${transactionObject.gasPrice}`
+          );
+        } else if (retries === 0) {
+          throw error;
+        }
+
+        // Wait before retry
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  } catch (error) {
+    console.error(
+      `❌ Transaction failed for ${account.fullName}:`,
+      error.message
+    );
+    throw error;
+  }
 }
 
 module.exports = {
@@ -99,4 +229,7 @@ module.exports = {
   web3,
   getTestAccountFromWallet,
   sendTransactionWithWallet,
+  resetAllNonces,
+  syncNonce,
+  accountNonces,
 };

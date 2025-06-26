@@ -2,7 +2,11 @@ const { initialize } = require("../utils/blockchain.js");
 const {
   sendTransactionWithWallet,
   getTestAccountFromWallet,
+  TEST_ACCOUNTS,
+  web3,
 } = require("../utils/testAccounts.js");
+
+const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
 // ==================== AUTH PERFORMANCE TESTING ====================
@@ -21,6 +25,15 @@ async function performanceRegisterUser(req, res) {
     }
 
     console.log(`Performance Test: Registering user ${testAccount.fullName}`);
+    console.time("Performance Registration Process Time");
+
+    // Validasi input
+    if (!fullName || fullName.trim() === "") {
+      throw new Error("Nama lengkap tidak boleh kosong");
+    }
+    if (!password || password.trim() === "") {
+      throw new Error("Password tidak boleh kosong");
+    }
 
     const { contract } = await initialize();
 
@@ -67,8 +80,25 @@ async function performanceLoginUser(req, res) {
     }
 
     console.log(`Performance Test: Login user ${testAccount.fullName}`);
+    console.time("Performance Login Process Time");
 
     const { contract } = await initialize();
+
+    const userInfo = await contract.methods
+      .getUserInfo(testAccount.address)
+      .call();
+    if (!userInfo.isRegistered) {
+      return res.status(400).json({
+        success: false,
+        message: "Pengguna belum terdaftar.",
+      });
+    }
+
+    const token = jwt.sign(
+      { publicKey: testAccount.address },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
     const transactionObject = {
       to: process.env.SMART_CONTRACT_ADDRESS,
@@ -81,6 +111,7 @@ async function performanceLoginUser(req, res) {
     res.json({
       success: true,
       message: "Performance test user logged in successfully",
+      token: token,
       publicTxHash: receipt.transactionHash,
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
@@ -98,13 +129,19 @@ async function performanceLoginUser(req, res) {
 // Performance testing untuk logout user
 async function performanceLogoutUser(req, res) {
   try {
-    const { userId } = req.body;
+    const userAddress = req.user.publicKey;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -118,7 +155,10 @@ async function performanceLogoutUser(req, res) {
       gas: 2000000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -127,6 +167,7 @@ async function performanceLogoutUser(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceLogout",
     });
   } catch (error) {
     console.error("❌ Performance test logout error:", error);
@@ -142,6 +183,8 @@ async function performanceLogoutUser(req, res) {
 // Performance testing untuk add plant
 async function performanceAddPlant(req, res) {
   try {
+    const userAddress = req.user.publicKey;
+
     const {
       userId,
       name,
@@ -154,11 +197,17 @@ async function performanceAddPlant(req, res) {
       ipfsHash,
     } = req.body;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -183,7 +232,10 @@ async function performanceAddPlant(req, res) {
       gas: 5000000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -192,6 +244,7 @@ async function performanceAddPlant(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceAddPlant",
     });
   } catch (error) {
     console.error("❌ Performance test add plant error:", error);
@@ -205,7 +258,8 @@ async function performanceAddPlant(req, res) {
 // Performance testing untuk edit plant
 async function performanceEditPlant(req, res) {
   try {
-    const { userId } = req.body;
+    const userAddress = req.user.publicKey; // Dari JWT token
+
     const { plantId } = req.params;
     const {
       name,
@@ -218,11 +272,18 @@ async function performanceEditPlant(req, res) {
       ipfsHash,
     } = req.body;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    // Find testAccount dari address
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -250,7 +311,10 @@ async function performanceEditPlant(req, res) {
       gas: 4000000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -260,6 +324,7 @@ async function performanceEditPlant(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceEditPlant",
     });
   } catch (error) {
     console.error("❌ Performance test edit plant error:", error);
@@ -273,13 +338,22 @@ async function performanceEditPlant(req, res) {
 // Performance testing untuk rate plant
 async function performanceRatePlant(req, res) {
   try {
-    const { userId, plantId, rating } = req.body;
+    const userAddress = req.user.publicKey;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    const { plantId, rating } = req.body;
+
+    // Find testAccount dari address
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -295,7 +369,10 @@ async function performanceRatePlant(req, res) {
       gas: 3000000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -306,6 +383,7 @@ async function performanceRatePlant(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceRatePlant",
     });
   } catch (error) {
     console.error("❌ Performance test rating error:", error);
@@ -319,13 +397,22 @@ async function performanceRatePlant(req, res) {
 // Performance testing untuk like plant
 async function performanceLikePlant(req, res) {
   try {
-    const { userId, plantId } = req.body;
+    const userAddress = req.user.publicKey;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    const { plantId } = req.body;
+
+    // Find testAccount dari address
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -341,7 +428,10 @@ async function performanceLikePlant(req, res) {
       gas: 2500000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -351,6 +441,7 @@ async function performanceLikePlant(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceLikePlant",
     });
   } catch (error) {
     console.error("❌ Performance test like error:", error);
@@ -364,13 +455,22 @@ async function performanceLikePlant(req, res) {
 // Performance testing untuk comment plant
 async function performanceCommentPlant(req, res) {
   try {
-    const { userId, plantId, comment } = req.body;
+    const userAddress = req.user.publicKey;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    const { plantId, comment } = req.body;
+
+    // Find testAccount dari address
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 
@@ -386,7 +486,10 @@ async function performanceCommentPlant(req, res) {
       gas: 3500000,
     };
 
-    const receipt = await sendTransactionWithWallet(userId, transactionObject);
+    const receipt = await sendTransactionWithWallet(
+      testAccount.id,
+      transactionObject
+    );
 
     res.json({
       success: true,
@@ -397,6 +500,7 @@ async function performanceCommentPlant(req, res) {
       testUser: testAccount.fullName,
       gasUsed: receipt.gasUsed,
       blockNumber: receipt.blockNumber,
+      operation: "performanceCommentPlant",
     });
   } catch (error) {
     console.error("❌ Performance test comment error:", error);
@@ -841,13 +945,20 @@ async function performanceGetAverageRating(req, res) {
 // Performance testing untuk get file dari IPFS
 async function performanceAddFileToIPFS(req, res) {
   try {
-    const { userId } = req.body;
+    const userAddress = req.user.publicKey;
 
-    const testAccount = getTestAccountFromWallet(userId);
+    // Find testAccount dari address
+    const testAccount = TEST_ACCOUNTS.find((acc) => {
+      const address = web3.eth.accounts.privateKeyToAccount(
+        acc.privateKey
+      ).address;
+      return address.toLowerCase() === userAddress.toLowerCase();
+    });
+
     if (!testAccount) {
       return res.status(400).json({
         success: false,
-        message: "Invalid test user ID",
+        message: "Test account not found for authenticated user",
       });
     }
 

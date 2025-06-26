@@ -28,6 +28,8 @@ const {
   performanceGetFileFromIPFS,
 } = require("../controllers/performanceController.js");
 
+const { verifyToken } = require("../jwtMiddleware.js");
+
 const router = express.Router();
 
 const multer = require("multer");
@@ -50,23 +52,23 @@ router.post("/auth/register", performanceRegisterUser);
 router.post("/auth/login", performanceLoginUser);
 
 // Performance testing untuk logout user
-router.post("/auth/logout", performanceLogoutUser);
+router.post("/auth/logout", verifyToken, performanceLogoutUser);
 
 // ==================== PLANT PERFORMANCE ROUTES ====================
 // Performance testing untuk add plant
-router.post("/plant/add", performanceAddPlant);
+router.post("/plant/add", verifyToken, performanceAddPlant);
 
 // Performance testing untuk edit plant
-router.put("/plant/edit/:plantId", performanceEditPlant);
+router.put("/plant/edit/:plantId", verifyToken, performanceEditPlant);
 
 // Performance testing untuk rate plant
-router.post("/plant/rate", performanceRatePlant);
+router.post("/plant/rate", verifyToken, performanceRatePlant);
 
 // Performance testing untuk like plant
-router.post("/plant/like", performanceLikePlant);
+router.post("/plant/like", verifyToken, performanceLikePlant);
 
 // Performance testing untuk comment plant
-router.post("/plant/comment", performanceCommentPlant);
+router.post("/plant/comment", verifyToken, performanceCommentPlant);
 
 // ==================== READ OPERATIONS PERFORMANCE ROUTES ====================
 // Performance testing untuk search plants
@@ -88,7 +90,7 @@ router.post("/plant/comments/:plantId", performanceGetComments);
 router.post("/plant/:plantId", performanceGetPlant);
 
 // Performance testing untuk add gambar ke IPFS
-router.post("/ipfs/upload", upload.single("file"), performanceAddFileToIPFS);
+router.post("/ipfs/upload", upload.single("file"), verifyToken, performanceAddFileToIPFS);
 
 // Performance testing untuk get gambar dari IPFS
 router.post("/ipfs/getFile/:cid", performanceGetFileFromIPFS);

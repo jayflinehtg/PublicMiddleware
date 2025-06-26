@@ -13,7 +13,6 @@ module.exports = {
       network_id: "5777",
     },
     public: {
-      // Nama jaringan ini bisa kamu sesuaikan, tapi 'public' itu deskriptif
       provider: () => {
         // Validasi keberadaan private key dan RPC URL
         if (!privateKey) {

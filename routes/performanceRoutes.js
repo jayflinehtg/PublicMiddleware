@@ -23,9 +23,24 @@ const {
   performanceGetAllPlantRecord,
   performanceGetPlantTransactionHistory,
   performanceGetRecordCount,
+
+  performanceAddFileToIPFS,
+  performanceGetFileFromIPFS,
 } = require("../controllers/performanceController.js");
 
 const router = express.Router();
+
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Hanya file gambar yang diperbolehkan!"), false);
+    }
+    cb(null, true);
+  },
+});
 
 // ==================== AUTH PERFORMANCE ROUTES ====================
 // Performance testing untuk register user
@@ -72,6 +87,12 @@ router.post("/plant/comments/:plantId", performanceGetComments);
 // Performance testing untuk get single plant
 router.post("/plant/:plantId", performanceGetPlant);
 
+// Performance testing untuk add gambar ke IPFS
+router.post("/ipfs/upload", upload.single("file"), performanceAddFileToIPFS);
+
+// Performance testing untuk get gambar dari IPFS
+router.post("/ipfs/getFile/:cid", performanceGetFileFromIPFS);
+
 // Performance testing untuk get all plant records
 router.post("/record/getAll", performanceGetAllPlantRecord);
 
@@ -101,7 +122,7 @@ router.get("/test-accounts", (req, res) => {
 });
 
 // ==================== NONCE MANAGEMENT ROUTES ====================
-// 🧪 Reset nonces untuk debugging
+// Reset nonces untuk debugging
 router.post("/reset-nonces", async (req, res) => {
   try {
     const { resetAllNonces } = require("../utils/testAccounts.js");
@@ -120,7 +141,7 @@ router.post("/reset-nonces", async (req, res) => {
   }
 });
 
-// 🧪 Get nonce status untuk debugging
+// Get nonce status untuk debugging
 router.get("/nonce-status", async (req, res) => {
   try {
     const {

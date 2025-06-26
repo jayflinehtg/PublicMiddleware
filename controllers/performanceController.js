@@ -696,7 +696,7 @@ async function performanceGetPlantRatings(req, res) {
       success: true,
       message: "Performance test get plant ratings completed successfully",
       plantId: plantId,
-      ratings: ratingsArray, // Mengembalikan ratings dalam bentuk array seperti original
+      ratings: ratingsArray,
       ratingsCount: ratingsArray.length,
       testUser: testAccount.fullName,
       executionTime: executionTime,
@@ -834,6 +834,164 @@ async function performanceGetAverageRating(req, res) {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+}
+
+// Performance testing untuk get file dari IPFS
+async function performanceAddFileToIPFS(req, res) {
+  try {
+    const { userId } = req.body;
+
+    const testAccount = getTestAccountFromWallet(userId);
+    if (!testAccount) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid test user ID",
+      });
+    }
+
+    // Check if file exists in request
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded for performance test",
+      });
+    }
+
+    if (!req.file.mimetype.startsWith("image/")) {
+      return res.status(400).json({
+        success: false,
+        message: "Hanya file gambar yang diperbolehkan untuk performance test!",
+      });
+    }
+
+    console.log(
+      `Performance Test: Adding file to IPFS by ${testAccount.fullName}`
+    );
+    console.time("Performance Add File to IPFS Time");
+
+    const startTime = Date.now();
+
+    const FormData = require("form-data");
+    const fetch = require("node-fetch");
+
+    const form = new FormData();
+    form.append("file", req.file.buffer, "performance-test-file");
+
+    const response = await fetch("http://172.27.80.247:5001/api/v0/add", {
+      method: "POST",
+      body: form,
+      headers: form.getHeaders(),
+    });
+
+    const rawResponse = await response.text();
+    console.log("Raw response from IPFS:", rawResponse);
+
+    const result = JSON.parse(rawResponse);
+
+    if (!response.ok) {
+      throw new Error("Gagal menambahkan file ke IPFS: " + result.Message);
+    }
+
+    const cid = result.Hash;
+    const endTime = Date.now();
+    const executionTime = endTime - startTime;
+
+    res.json({
+      success: true,
+      message: "Performance test file added to IPFS successfully",
+      cid: cid,
+      fileSize: req.file.size,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      testUser: testAccount.fullName,
+      executionTime: executionTime,
+      operation: "addFileToIPFS",
+    });
+
+    console.timeEnd("Performance Add File to IPFS Time");
+    console.log(`✅ Performance test file added to IPFS with CID: ${cid}`);
+  } catch (error) {
+    console.error("❌ Performance test add file to IPFS error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// Performance testing untuk get file dari IPFS
+async function performanceGetFileFromIPFS(req, res) {
+  try {
+    const { userId } = req.body;
+    const { cid } = req.params;
+
+    const testAccount = getTestAccountFromWallet(userId);
+    if (!testAccount) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid test user ID",
+      });
+    }
+
+    if (!cid) {
+      return res.status(400).json({
+        success: false,
+        message: "CID is required for performance test",
+      });
+    }
+
+    console.log(
+      `Performance Test: Getting file from IPFS (CID: ${cid}) by ${testAccount.fullName}`
+    );
+    console.time("Performance Get File from IPFS Time");
+
+    const startTime = Date.now();
+
+    const FormData = require("form-data");
+    const fetch = require("node-fetch");
+
+    const form = new FormData();
+    form.append("arg", cid);
+
+    const response = await fetch("http://172.27.80.247:5001/api/v0/cat", {
+      method: "POST",
+      body: form,
+      headers: form.getHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`IPFS Error: ${error}`);
+    }
+
+    const fileData = await response.buffer();
+    const endTime = Date.now();
+    const executionTime = endTime - startTime;
+
+    res.json({
+      success: true,
+      message: "Performance test file retrieved from IPFS successfully",
+      cid: cid,
+      fileSize: fileData.length,
+      fileSizeFormatted: `${(fileData.length / 1024).toFixed(2)} KB`,
+      testUser: testAccount.fullName,
+      executionTime: executionTime,
+      operation: "getFileFromIPFS",
+      note: "File data retrieved but not sent in response for performance testing",
+    });
+
+    console.timeEnd("Performance Get File from IPFS Time");
+    console.log(`✅ Performance test file retrieved from IPFS: ${cid}`);
+  } catch (error) {
+    console.error("❌ Performance test get file from IPFS error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message.includes("not found")
+        ? "File tidak ditemukan di IPFS"
+        : "Gagal mengambil file dari IPFS",
+      cid: req.params.cid,
     });
   }
 }
@@ -1078,4 +1236,7 @@ module.exports = {
   performanceGetAllPlantRecord,
   performanceGetPlantTransactionHistory,
   performanceGetRecordCount,
+
+  performanceAddFileToIPFS,
+  performanceGetFileFromIPFS,
 };

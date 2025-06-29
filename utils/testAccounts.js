@@ -11,7 +11,6 @@ const web3 = new Web3(
 const accountNonces = new Map(); // Menyimpan nonce per address
 const nonceLocks = new Map(); // Lock mechanism untuk concurrent access
 
-// Hardcoded test accounts dari Ganache Anda
 const TEST_ACCOUNTS = [
   {
     id: "testUser1",

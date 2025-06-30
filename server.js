@@ -6,7 +6,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const routes = require("./routes/index.js"); // const router utama
+const routes = require("./routes/index.js");
 
 // Inisialisasi environment variables
 dotenv.config();
@@ -19,8 +19,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// PENTING: Mount router utama dari index.js
-app.use("/api", routes); // Menambahkan prefix '/api'
+// Mount router utama
+app.use("/api", routes);
 
 // Penanganan 404 untuk rute yang tidak terdaftar
 app.use((req, res) => {

@@ -1,4 +1,4 @@
-  const { initialize } = require("../utils/blockchain.js");
+const { initialize } = require("../utils/blockchain.js");
 const { getUserData } = require("./authController.js");
 
 async function addPlantData(req, res) {
@@ -147,7 +147,7 @@ async function getPlant(req, res) {
     console.time("Get Plant Time");
     const { plantId } = req.params;
 
-    // Ambil alamat publik user (kalau tersedia, bisa undefined untuk guest)
+    // Ambil alamat publik user
     const userAddress = req.user?.publicKey;
 
     const { contract } = await initialize();
@@ -163,7 +163,7 @@ async function getPlant(req, res) {
     }
 
     // Mengonversi nilai yang mungkin BigInt ke string
-    const plantIdString = plantId.toString(); // Jika plantId merupakan BigInt
+    const plantIdString = plantId.toString();
     const ratingTotalString = plant.ratingTotal.toString();
     const ratingCountString = plant.ratingCount.toString();
     const likeCountString = plant.likeCount.toString();
@@ -179,11 +179,11 @@ async function getPlant(req, res) {
         caraPengolahan: plant.caraPengolahan,
         efekSamping: plant.efekSamping,
         ipfsHash: plant.ipfsHash,
-        ratingTotal: ratingTotalString, // Mengonversi BigInt menjadi string
-        ratingCount: ratingCountString, // Mengonversi BigInt menjadi string
-        likeCount: likeCountString, // Mengonversi BigInt menjadi string
+        ratingTotal: ratingTotalString,
+        ratingCount: ratingCountString,
+        likeCount: likeCountString,
         owner: plant.owner,
-        plantId: plantIdString, // Mengembalikan plantId sebagai string
+        plantId: plantIdString,
         isLikedByUser,
       },
     });
@@ -259,7 +259,7 @@ async function getAverageRating(req, res) {
 
     res.json({
       success: true,
-      averageRating: Math.round(validRating * 10) / 10, // Mengonversi rata-rata rating menjadi string
+      averageRating: Math.round(validRating * 10) / 10,
     });
     console.timeEnd("Get Average Rating Time");
   } catch (error) {
@@ -459,9 +459,9 @@ async function searchPlants(req, res) {
       namaLatin: plant.namaLatin || "Tidak Diketahui",
       komposisi: plant.komposisi || "Tidak Diketahui",
       manfaat: plant.manfaat || "Tidak Diketahui",
-      dosis: plant.dosis || "Tidak Diketahui", // Menambahkan dosis
+      dosis: plant.dosis || "Tidak Diketahui",
       caraPengolahan: plant.caraPengolahan || "Tidak Diketahui",
-      efekSamping: plant.efekSamping || "Tidak Diketahui", // Menambahkan efek samping
+      efekSamping: plant.efekSamping || "Tidak Diketahui",
       ipfsHash: plant.ipfsHash || "Tidak Diketahui",
       ratingTotal: (plant.ratingTotal || 0n)?.toString() || "0",
       ratingCount: (plant.ratingCount || 0n)?.toString() || "0",
@@ -489,7 +489,7 @@ async function getComments(req, res) {
 
     const { contract } = await initialize();
 
-    // 1. Dapatkan jumlah total komentar dari fungsi baru di kontrak
+    // Dapatkan jumlah total komentar dari fungsi baru di kontrak
     const totalCommentsBigInt = await contract.methods
       .getPlantCommentCount(plantId)
       .call();
@@ -506,13 +506,13 @@ async function getComments(req, res) {
       });
     }
 
-    // 2. Hitung startIndex dan endIndex
+    // Hitung startIndex dan endIndex
     const totalPages = Math.ceil(totalComments / limit);
     const startIndex = (page - 1) * limit;
     const endIndex = Math.min(startIndex + limit, totalComments);
     const commentsPromises = [];
 
-    // 3. Loop untuk mengambil komentar satu per satu untuk halaman saat ini
+    // Loop untuk mengambil komentar satu per satu untuk halaman saat ini
     if (startIndex < totalComments) {
       for (let i = startIndex; i < endIndex; i++) {
         // Panggil fungsi baru getPlantCommentAtIndex
@@ -524,7 +524,7 @@ async function getComments(req, res) {
 
     const resolvedComments = await Promise.all(commentsPromises);
 
-    // 4. Ambil fullName untuk setiap komentator
+    // Ambil fullName untuk setiap komentator
     const commentsWithStringValues = await Promise.all(
       resolvedComments.map(async (comment) => {
         try {
@@ -620,6 +620,36 @@ async function getAllPlantRecord(req, res) {
   } catch (error) {
     console.error("❌ Error in getAllPlantRecord:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function updatePlantRecordHash(req, res) {
+  try {
+    const { recordId, txHash } = req.body;
+    const userAddress = req.user.publicKey;
+
+    console.log("Preparing update transaction hash date for user:", userAddress);
+    console.log(`Updating plant record ${recordId} with txHash: ${txHash}`);
+
+    const { contract } = await initialize();
+
+    // Prepare transaction untuk update record hash
+    const txObject = contract.methods.updatePlantRecordHash(recordId, txHash);
+    const transactionDataHex = txObject.encodeABI();
+
+    res.json({
+      success: true,
+      message: "Plant record hash update transaction prepared",
+      data: {
+        transactionData: transactionDataHex,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error updating plant record hash:", error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to update plant record hash: ${error.message}`,
+    });
   }
 }
 
@@ -755,6 +785,7 @@ module.exports = {
   getComments,
   getAllPlants,
   getPlantRecord,
+  updatePlantRecordHash,
   getAllPlantRecord,
   getPlantTransactionHistory,
   getRecordCount,

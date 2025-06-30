@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
-const { initialize } = require("./utils/blockchain.js"); // Mengakses fungsi blockchain untuk validasi
+const { initialize } = require("./utils/blockchain.js");
 dotenv.config();
 
 const verifyToken = async (req, res, next) => {
@@ -23,7 +23,7 @@ const verifyToken = async (req, res, next) => {
 
     console.log("Decoded token:", decoded); // Debugging: Menampilkan token yang terdecode
 
-    // Mendapatkan publicKey (wallet address) dari decoded token
+    // Mendapatkan publicKey dari decoded token
     const { publicKey } = decoded;
     const { contract } = await initialize(publicKey);
     const userInfo = await contract.methods.getUserInfo(publicKey).call();
@@ -66,7 +66,7 @@ const handleTokenExpiration = async (req, res, next) => {
       });
     }
 
-    const { publicKey } = decodedExpired; // Mengambil wallet address dari token yang sudah expired
+    const { publicKey } = decodedExpired;
 
     // cek status di blockchain untuk memastikan user masih login
     const { contract } = await initialize(publicKey);

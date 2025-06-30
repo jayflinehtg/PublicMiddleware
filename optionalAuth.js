@@ -23,7 +23,7 @@ const optionalAuth = async (req, res, next) => {
     const userInfo = await contract.methods.getUserInfo(publicKey).call();
 
     if (!userInfo.isLoggedIn) {
-      req.user = null; // Guest mode jika tidak login di blockchain
+      req.user = null;
     }
 
     next();

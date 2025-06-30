@@ -19,7 +19,7 @@ contract HerbalPlant {
 
     struct User {
         string fullName;
-        string hashPass;  // Store hashed password
+        string hashPass;
         bool isRegistered;
         bool isLoggedIn;
     }
@@ -31,15 +31,15 @@ contract HerbalPlant {
     }
 
     struct PlantRecord {
-        string publicTxHash;    // Transaction hash dari Public
-        uint256 plantId;         // ID tanaman dari Public
-        address userAddress;     // Address user yang menambahkan
-        uint256 timestamp;       // Waktu penyimpanan
+        string publicTxHash;
+        uint256 plantId;
+        address userAddress;
+        uint256 timestamp;
     }
 
     mapping(uint => Plant) public plants;
     mapping(address => User) private usersByPublicKey;
-    mapping(uint => Comment[]) public plantComments;  // Mapping for plant comments
+    mapping(uint => Comment[]) public plantComments;
     mapping(uint => address[]) public plantRatingUsers;
     mapping(uint => mapping(address => uint)) public plantRatings;
     mapping(uint => mapping(address => bool)) public plantLikes;
@@ -57,6 +57,7 @@ contract HerbalPlant {
     event UserLoggedIn(address indexed publicKey);
     event UserLoggedOut(address indexed publicKey);
     event PlantCommented(uint plantId, address user, string comment);
+    event PlantRecordUpdated(uint256 indexed recordId, string txHash);
 
     event PlantRecordAdded(
         uint256 indexed recordId,
@@ -137,7 +138,7 @@ contract HerbalPlant {
     ) public onlyActiveUser {
         require(bytes(name).length > 0, "Nama tanaman diperlukan");
 
-        uint currentId = plantCount; // simpan ID sekarang sebelum increment
+        uint currentId = plantCount;
 
         plants[currentId] = Plant({
             name: name,
@@ -154,7 +155,7 @@ contract HerbalPlant {
             owner: msg.sender
         });
 
-    // Auto-save plant record dengan transaction hash
+    // save plant record dengan transaction hash
     plantRecords[recordCount] = PlantRecord({
         publicTxHash: "",
         plantId: currentId,
@@ -194,7 +195,7 @@ contract HerbalPlant {
         plants[plantId].efekSamping = efekSamping;
         plants[plantId].ipfsHash = ipfsHash;
 
-    // Auto-save plant record untuk edit
+    // save plant record untuk edit
     plantRecords[recordCount] = PlantRecord({
         publicTxHash: "", 
         plantId: plantId,
@@ -207,6 +208,15 @@ contract HerbalPlant {
     
     recordCount++;
 }
+
+    // 🔹 Update Transaction Hash
+    function updatePlantRecordHash(uint256 recordId, string memory txHash) public {
+    require(recordId < recordCount, "Record tidak ditemukan");
+    require(plantRecords[recordId].userAddress == msg.sender, "Hanya pemilik record yang dapat update");
+    
+    plantRecords[recordId].publicTxHash = txHash;
+    emit PlantRecordUpdated(recordId, txHash);
+    }
 
     // 🔹 Memberi rating tanaman herbal (1-5)
     function ratePlant(uint plantId, uint rating) public onlyActiveUser {
@@ -259,16 +269,16 @@ contract HerbalPlant {
     function likePlant(uint plantId) public onlyActiveUser {
         require(plants[plantId].owner != address(0), "Tanaman tidak ditemukan");
 
-        // Jika pengguna sudah memberi like sebelumnya, hapus like tersebut
+        // Jika pengguna sudah memberi like sebelumnya, hapus state like tersebut
         if (plantLikes[plantId][msg.sender]) {
             plantLikes[plantId][msg.sender] = false;
             plants[plantId].likeCount--;
-            emit PlantLiked(plantId, msg.sender); // Emit event jika perlu
+            emit PlantLiked(plantId, msg.sender); 
         } else {
             // Jika belum memberi like, beri like
             plantLikes[plantId][msg.sender] = true;
             plants[plantId].likeCount++;
-            emit PlantLiked(plantId, msg.sender); // Emit event jika perlu
+            emit PlantLiked(plantId, msg.sender);
         }
     }
 
@@ -299,12 +309,11 @@ contract HerbalPlant {
 
     // 🔹 Mendapatkan satu komentar berdasarkan indeksnya untuk tanaman tertentu
     function getPlantCommentAtIndex(uint plantId, uint index) public view returns (Comment memory) {
-        // require(plants[plantId].owner != address(0), "Tanaman tidak ditemukan"); // Opsional
         require(index < plantComments[plantId].length, "Indeks komentar di luar jangkauan");
         return plantComments[plantId][index];
     }
 
-    // 🔹 Mengambil detail tanaman herbal (Semua informasi dalam satu fungsi)
+    // 🔹 Mengambil detail tanaman herbal
     function getPlant(uint plantId) public view returns (
         string memory name,
         string memory namaLatin,
@@ -346,7 +355,7 @@ contract HerbalPlant {
     string memory manfaat
     ) 
     public view
-    returns (uint[] memory, Plant[] memory) // Return 2 array: IDs dan data tanaman
+    returns (uint[] memory, Plant[] memory)
     {
     uint plantIndex = 0;
     uint[] memory idResults = new uint[](plantCount);
@@ -365,8 +374,8 @@ contract HerbalPlant {
 
         // Jika memenuhi kriteria, tambahkan ke hasil
         if (isMatch) {
-            idResults[plantIndex] = i; // Simpan ID tanaman (index)
-            plantResults[plantIndex] = currentPlant; // Simpan data lengkap
+            idResults[plantIndex] = i; 
+            plantResults[plantIndex] = currentPlant;
             plantIndex++;
         }
     }
@@ -381,11 +390,11 @@ contract HerbalPlant {
         finalPlants[i] = plantResults[i];
     }
 
-    // Kembalikan sebagai tuple (2 array terpisah)
+    // Kembalikan sebagai tuple
     return (finalIds, finalPlants);
     }
 
-    // 🔹 Fungsi untuk mengecek apakah sebuah string mengandung substring tertentu (case-insensitive)
+    // 🔹 Fungsi untuk mengecek apakah sebuah string mengandung substring tertentu
     function contains(string memory haystack, string memory needle) internal pure returns (bool) {
         bytes memory haystackBytes = bytes(haystack);
         bytes memory needleBytes = bytes(needle);
@@ -437,7 +446,7 @@ contract HerbalPlant {
         return string(lowerBytes);
     }
     
-    // 🔹 mengambil transaction hash, plantId, dan userAddress, dan timestamp
+    // 🔹 Mengambil transaction hash, plantId, dan userAddress, dan timestamp
     function getPlantRecord(uint256 recordId) public view returns (
         string memory publicTxHash,
         uint256 plantId,

@@ -19,7 +19,7 @@ router.post("/register", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: result, // Kirim kembali objek result yang berisi transactionData
+      data: result, 
       message: "Data transaksi registrasi siap, silakan lanjutkan dari klien.",
     });
   } catch (error) {
@@ -48,7 +48,7 @@ router.post("/login", async (req, res) => {
       ...result,
     });
   } catch (error) {
-    // Tangkap error yang dilempar oleh loginUser (misal: "Pengguna belum terdaftar.")
+    // Tangkap error yang dilempar oleh loginUser
     console.error(
       `Login attempt failed for ${req.body.walletAddress}: ${error.message}`
     );
@@ -71,11 +71,11 @@ router.get("/user/:walletAddress", async (req, res) => {
   }
 });
 
-// Rute untuk logout (validasi token server & dapatkan data transaksi logout on-chain)
+// Rute untuk logout
 router.post("/logout", verifyToken, requireFreshToken, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
-    const result = await logoutUser(token); // result berisi { message, logoutTransactionData, publicKey }
+    const result = await logoutUser(token);
 
     // Kirim semua field dari result ke klien
     res.status(200).json({ success: true, ...result });

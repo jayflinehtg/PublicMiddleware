@@ -7,9 +7,9 @@ const web3 = new Web3(
   process.env.BLOCKCHAIN_RPC_URL || "https://tea-sepolia.g.alchemy.com/public"
 );
 
-// Nonce management variables (TAMBAHAN BARU)
-const accountNonces = new Map(); // Menyimpan nonce per address
-const nonceLocks = new Map(); // Lock mechanism untuk concurrent access
+// Nonce management variables
+const accountNonces = new Map();
+const nonceLocks = new Map();
 
 const TEST_ACCOUNTS = [
   {
@@ -33,7 +33,7 @@ const TEST_ACCOUNTS = [
 ];
 
 // Create wallet dengan test accounts
-const performanceWallet = web3.eth.accounts.wallet.create(0); // Create empty wallet
+const performanceWallet = web3.eth.accounts.wallet.create(0);
 
 // Add test accounts ke wallet
 TEST_ACCOUNTS.forEach((account) => {
@@ -194,7 +194,7 @@ async function sendTransactionWithWallet(userId, transactionObject) {
         } else if (
           error.message.includes("replacement transaction underpriced")
         ) {
-          // Increase gas price by 10%
+          // Increase gas price
           const currentGasPrice = BigInt(transactionObject.gasPrice);
           transactionObject.gasPrice = (
             (currentGasPrice * BigInt(110)) /

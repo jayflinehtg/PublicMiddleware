@@ -22,7 +22,7 @@ async function registerUser(fullName, password, walletAddress) {
       throw new Error("Wallet address tidak boleh kosong");
     }
 
-    // Validasi format wallet address (opsional)
+    // Validasi format wallet address
     if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       throw new Error("Format wallet address tidak valid");
     }
@@ -41,7 +41,7 @@ async function registerUser(fullName, password, walletAddress) {
     const passwordHash = await bcrypt.hash(password, salt);
     console.log("Password hash generated for registration");
 
-    // Buat data transaksi ABI-encoded untuk registerUser(string,string)
+    // Buat data transaksi ABI-encoded untuk registerUser
     const txObject = contract.methods.registerUser(fullName, passwordHash);
     const transactionDataHex = txObject.encodeABI();
 
@@ -59,11 +59,11 @@ async function registerUser(fullName, password, walletAddress) {
   }
 }
 
-// Fungsi loginUser: Verifikasi Kredensial, Terbitkan JWT, dan Persiapan encodedABI untuk login on-chain
+// Fungsi loginUser
 async function loginUser(walletAddress, password) {
   try {
     console.time("Login Process Time");
-    const { contract } = await initialize(walletAddress); // Perlu untuk getUserInfo
+    const { contract } = await initialize(walletAddress);
 
     const userInfo = await contract.methods.getUserInfo(walletAddress).call();
     if (!userInfo.isRegistered) {
@@ -116,7 +116,7 @@ async function loginUser(walletAddress, password) {
   }
 }
 
-// Fungsi getUserData: Tetap sama, hanya membaca data
+// Fungsi getUserData
 async function getUserData(walletAddress) {
   try {
     const { contract } = await initialize();
@@ -132,7 +132,7 @@ async function getUserData(walletAddress) {
   }
 }
 
-// Fungsi logoutUser: Verifikasi JWT dan Persiapan encodedABI untuk logout on-chain
+// Fungsi logoutUser
 async function logoutUser(token) {
   try {
     console.time("Server Logout Process Time");
@@ -141,7 +141,7 @@ async function logoutUser(token) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const publicKey = decoded.publicKey; // Alamat pengguna yang akan logout on-chain
+    const publicKey = decoded.publicKey; 
 
     const { contract } = await initialize();
     const logoutTxObject = contract.methods.logout();
@@ -175,7 +175,7 @@ async function logoutUser(token) {
         return {
           message: "Token sudah kedaluwarsa. Logout tetap dapat dilanjutkan.",
           logoutTransactionData: logoutTransactionDataHex,
-          publicKey: null, // Tidak ada publicKey karena token expired
+          publicKey: null,
         };
       } catch (contractError) {
         throw new Error(

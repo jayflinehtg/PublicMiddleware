@@ -1,4 +1,4 @@
-require("dotenv").config(); // Ensure dotenv is loaded first
+require("dotenv").config();
 const path = require("path");
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 
@@ -29,7 +29,7 @@ module.exports = {
         return new HDWalletProvider({
           privateKeys: [privateKey],
           providerOrUrl: rpcUrl,
-          pollingInterval: 20000, // Nilai tetap 20 detik
+          pollingInterval: 20000,
           numberOfAddresses: 1,
           shareNonce: true,
           derivationPath: "m/44'/60'/0'/0/",
@@ -37,15 +37,15 @@ module.exports = {
           timeout: 90000,
         });
       },
-      network_id: 10218, // Specific network ID instead of "*"
+      network_id: 10218,
       gas: 8000000,
-      gasPrice: 20000000000, // 20 gwei
+      gasPrice: 20000000000,
       confirmations: 1,
       timeoutBlocks: 300,
-      networkCheckTimeout: 180000, // 3 menit
-      deploymentPollingInterval: 20000, // 20 detik polling
+      networkCheckTimeout: 180000,
+      deploymentPollingInterval: 20000,
       skipDryRun: true,
-      disableConfirmationListener: true, // untuk mengurangi request
+      disableConfirmationListener: true,
     },
   },
   compilers: {
